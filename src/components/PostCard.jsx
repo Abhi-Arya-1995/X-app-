@@ -92,7 +92,11 @@ export default function PostCard({ post, onChange, linkToPost = true }) {
           )}
         </header>
 
-        <p className="post-text">{post.body}</p>
+        {post.body && <p className="post-text">{post.body}</p>}
+
+        {post.image && (
+          <img className="post-image" src={post.image} alt={`Image attached to post by ${post.author.displayName}`} loading="lazy" />
+        )}
 
         <div className="post-actions">
           <Link

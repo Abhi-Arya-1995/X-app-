@@ -1,5 +1,6 @@
 import express from 'express'
 import cookieParser from 'cookie-parser'
+import multer from 'multer'
 import http from 'node:http'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -8,10 +9,54 @@ import { pool, initDb } from './db.js'
 
 const PORT = Number(process.env.PORT || 3000)
 const IS_PROD = process.env.NODE_ENV === 'production'
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.resolve('uploads')
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
+// Uploaded images live on disk and are served under /uploads (public URLs).
+const IMAGE_EXTENSIONS = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+}
+
+await fs.mkdir(UPLOAD_DIR, { recursive: true })
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+    filename: (_req, file, cb) => cb(null, `${randomUUID()}${IMAGE_EXTENSIONS[file.mimetype] || ''}`),
+  }),
+  limits: { fileSize: MAX_IMAGE_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (IMAGE_EXTENSIONS[file.mimetype]) return cb(null, true)
+    const err = new Error('UNSUPPORTED_IMAGE_TYPE')
+    err.code = 'UNSUPPORTED_IMAGE_TYPE'
+    cb(err)
+  },
+})
+
+function uploadImage(req, res, next) {
+  upload.single('image')(req, res, (err) => {
+    if (!err) return next()
+    const message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'Images must be 5MB or smaller.'
+        : 'Upload a JPEG, PNG, GIF or WebP image.'
+    res.status(400).json({ error: message })
+  })
+}
+
+async function removeUploadedFile(imageUrl) {
+  if (!imageUrl?.startsWith('/uploads/')) return
+  await fs.unlink(path.join(UPLOAD_DIR, path.basename(imageUrl))).catch(() => {})
+}
 
 const app = express()
 app.use(express.json())
 app.use(cookieParser())
+app.use('/uploads', express.static(UPLOAD_DIR, { index: false, maxAge: '7d' }))
+app.use('/uploads', (_req, res) => res.status(404).json({ error: 'Image not found.' }))
 
 // Attach the signed-in user (if any) from the session cookie.
 app.use(async (req, _res, next) => {
@@ -39,7 +84,7 @@ const publicUser = (user) => ({
 })
 
 const POST_COLUMNS = `
-  p.id, p.body, p.reply_to, p.created_at,
+  p.id, p.body, p.reply_to, p.image_url, p.created_at,
   u.handle, u.display_name,
   (SELECT count(*) FROM likes l WHERE l.post_id = p.id)::int AS like_count,
   (SELECT count(*) FROM posts r WHERE r.reply_to = p.id)::int AS reply_count,
@@ -50,6 +95,7 @@ const serializePost = (row) => ({
   id: row.id,
   body: row.body,
   replyTo: row.reply_to,
+  image: row.image_url,
   createdAt: row.created_at,
   author: { handle: row.handle, displayName: row.display_name },
   likeCount: row.like_count,
@@ -156,27 +202,38 @@ app.get('/api/posts/:id', async (req, res, next) => {
   }
 })
 
-app.post('/api/posts', async (req, res, next) => {
+app.post('/api/posts', uploadImage, async (req, res, next) => {
   try {
-    if (!req.user) return res.status(401).json({ error: 'Sign in to post.' })
+    if (!req.user) {
+      await removeUploadedFile(req.file ? `/uploads/${req.file.filename}` : null)
+      return res.status(401).json({ error: 'Sign in to post.' })
+    }
 
     const body = String(req.body?.body || '').trim()
     const replyTo = req.body?.replyTo ? Number(req.body.replyTo) : null
+    const image = req.file ? `/uploads/${req.file.filename}` : null
 
-    if (!body) return res.status(400).json({ error: 'Write something first.' })
-    if (body.length > 280) return res.status(400).json({ error: 'Posts are limited to 280 characters.' })
+    if (!body && !image) return res.status(400).json({ error: 'Write something or add an image.' })
+    if (body.length > 280) {
+      await removeUploadedFile(image)
+      return res.status(400).json({ error: 'Posts are limited to 280 characters.' })
+    }
 
     if (replyTo) {
       const parent = await pool.query('SELECT 1 FROM posts WHERE id = $1', [replyTo])
-      if (!parent.rowCount) return res.status(404).json({ error: 'Post not found.' })
+      if (!parent.rowCount) {
+        await removeUploadedFile(image)
+        return res.status(404).json({ error: 'Post not found.' })
+      }
     }
 
     const { rows } = await pool.query(
-      'INSERT INTO posts (author_id, body, reply_to) VALUES ($1, $2, $3) RETURNING id',
-      [req.user.id, body, replyTo],
+      'INSERT INTO posts (author_id, body, reply_to, image_url) VALUES ($1, $2, $3, $4) RETURNING id',
+      [req.user.id, body, replyTo, image],
     )
     res.status(201).json({ id: rows[0].id })
   } catch (err) {
+    await removeUploadedFile(req.file ? `/uploads/${req.file.filename}` : null)
     next(err)
   }
 })
@@ -185,8 +242,12 @@ app.delete('/api/posts/:id', async (req, res, next) => {
   try {
     if (!req.user) return res.status(401).json({ error: 'Sign in to delete a post.' })
     const id = Number(req.params.id)
-    const { rowCount } = await pool.query('DELETE FROM posts WHERE id = $1 AND author_id = $2', [id, req.user.id])
-    if (!rowCount) return res.status(404).json({ error: 'Post not found.' })
+    const { rows } = await pool.query(
+      'DELETE FROM posts WHERE id = $1 AND author_id = $2 RETURNING image_url',
+      [id, req.user.id],
+    )
+    if (!rows[0]) return res.status(404).json({ error: 'Post not found.' })
+    await removeUploadedFile(rows[0].image_url)
     res.json({ ok: true })
   } catch (err) {
     next(err)

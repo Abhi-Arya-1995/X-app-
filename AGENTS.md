@@ -7,6 +7,12 @@
 - Postgres credentials are local-only (`xapp`/`xapp`, database `xapp`), wired through `DATABASE_URL` in compose. `server/db.js` creates the schema with `CREATE TABLE IF NOT EXISTS` on every boot and seeds demo users/posts only when the `users` table is empty.
 - `BASE44_PREVIEW_MODE` is passed through to the web service; when it equals `"1"`, `server/index.js` adds `.<BASE44_SANDBOX_HOST_DOMAIN>` to Vite's `allowedHosts` so the preview proxy host is accepted. Unset (or any other value) keeps Vite's default allowlist.
 
+## Image uploads
+
+- `POST /api/posts` accepts `multipart/form-data` with `body`, optional `replyTo` and optional `image` (single file: JPEG/PNG/GIF/WebP, max 5MB, enforced by multer).
+- Files are written to `UPLOAD_DIR` (`/app/uploads`, a named compose volume so they survive restarts) and served publicly from `/uploads/<file>`; the `posts.image_url` column stores that path. Deleting a post unlinks its file.
+- A text post may be empty **only** when an image is attached.
+
 ## Conventions
 
 - Auth is a demo cookie session (handle only, no password) stored in `sessions`. It is intentionally not real authentication.

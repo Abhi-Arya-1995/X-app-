@@ -38,6 +38,7 @@ export async function initDb() {
       id SERIAL PRIMARY KEY,
       author_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       body TEXT NOT NULL,
+      image_url TEXT,
       reply_to INTEGER REFERENCES posts(id) ON DELETE CASCADE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     );
@@ -48,6 +49,9 @@ export async function initDb() {
       PRIMARY KEY (user_id, post_id)
     );
   `)
+
+  // Existing databases predate image attachments.
+  await pool.query('ALTER TABLE posts ADD COLUMN IF NOT EXISTS image_url TEXT')
 
   await seed()
 }

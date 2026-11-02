@@ -1,6 +1,6 @@
 async function request(path, options = {}) {
   const res = await fetch(`/api${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: options.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
     credentials: 'same-origin',
     ...options,
   })
@@ -15,7 +15,13 @@ export const api = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   posts: (author) => request(`/posts${author ? `?author=${encodeURIComponent(author)}` : ''}`),
   post: (id) => request(`/posts/${id}`),
-  createPost: (payload) => request('/posts', { method: 'POST', body: JSON.stringify(payload) }),
+  createPost: ({ body, replyTo, image }) => {
+    const form = new FormData()
+    form.append('body', body || '')
+    if (replyTo) form.append('replyTo', String(replyTo))
+    if (image) form.append('image', image)
+    return request('/posts', { method: 'POST', body: form })
+  },
   deletePost: (id) => request(`/posts/${id}`, { method: 'DELETE' }),
   toggleLike: (id) => request(`/posts/${id}/like`, { method: 'POST' }),
   users: () => request('/users'),

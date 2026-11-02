@@ -47,6 +47,16 @@ export function ProfileIcon(props) {
   )
 }
 
+export function ImageIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <circle cx="9" cy="10" r="1.6" />
+      <path d="m5 18 5-5 3.5 3.5L16 13l4 4" />
+    </svg>
+  )
+}
+
 export function LogoIcon(props) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
