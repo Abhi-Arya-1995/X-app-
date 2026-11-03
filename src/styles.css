@@ -18,8 +18,17 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
   color: var(--text);
+}
+
+/* The base color lives on <html> so body stays transparent and the fixed
+   artwork layer below (body::before) is not painted over. */
+html {
+  background: var(--bg);
+}
+
+body {
+  background: transparent;
 }
 
 /* Fixed backdrop: the uploaded artwork, dimmed so feed text stays readable. */

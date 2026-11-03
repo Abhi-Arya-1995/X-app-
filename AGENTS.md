@@ -7,6 +7,10 @@
 - Postgres credentials are local-only (`xapp`/`xapp`, database `xapp`), wired through `DATABASE_URL` in compose. `server/db.js` creates the schema with `CREATE TABLE IF NOT EXISTS` on every boot and seeds demo users/posts only when the `users` table is empty.
 - `BASE44_PREVIEW_MODE` is passed through to the web service; when it equals `"1"`, `server/index.js` adds `.<BASE44_SANDBOX_HOST_DOMAIN>` to Vite's `allowedHosts` so the preview proxy host is accepted. Unset (or any other value) keeps Vite's default allowlist.
 
+## CSS layering
+
+- The dimmed artwork backdrop is `body::before` with `z-index: -1`. It only shows because `<html>` carries the base `--bg` color and `<body>` is transparent — giving `body` an opaque background paints over the image and the page goes flat black.
+
 ## Image uploads
 
 - `POST /api/posts` accepts `multipart/form-data` with `body`, optional `replyTo` and optional `image` (single file: JPEG/PNG/GIF/WebP, max 5MB, enforced by multer).
