@@ -1,0 +1,61 @@
+services:
+  web:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    command: ["sh", "-ec", "npm ci --no-audit --no-fund && exec npm run dev"]
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - DATABASE_URL=postgres://xapp:xapp@db:5432/xapp
+      - UPLOAD_DIR=/app/uploads
+      - BASE44_PREVIEW_MODE
+      - BASE44_SANDBOX_HOST_DOMAIN
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 90s
+    restart: on-failure
+    labels:
+      base44.project: X App
+      base44.kind: web
+      base44.port: 3000
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: xapp
+      POSTGRES_PASSWORD: xapp
+      POSTGRES_DB: xapp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xapp -d xapp"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: on-failure
+    labels:
+      base44.project: Postgres
+      base44.kind: infra
+
+volumes:
+  node_modules:
+  pgdata:
+  uploads:
