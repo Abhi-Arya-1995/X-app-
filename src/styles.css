@@ -41,6 +41,8 @@ body::before {
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  /* Keep the artwork vivid under the darkening tint. */
+  filter: saturate(1.35) contrast(1.05);
 }
 
 body {
@@ -765,7 +767,7 @@ h2 {
 
   /* Narrow crops show only the middle of the artwork, so dim it less. */
   body::before {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.74)), url('/background.jpg');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.82), rgba(0, 0, 0, 0.9)), url('/background.jpg');
   }
 
   .sidebar {
