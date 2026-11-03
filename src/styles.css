@@ -37,7 +37,7 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -1;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.36), rgba(0, 0, 0, 0.55)), url('/background.jpg');
+  background-image: linear-gradient(rgba(0, 0, 0, 0.68), rgba(0, 0, 0, 0.78)), url('/background.jpg');
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -765,7 +765,7 @@ h2 {
 
   /* Narrow crops show only the middle of the artwork, so dim it less. */
   body::before {
-    background-image: linear-gradient(rgba(0, 0, 0, 0.28), rgba(0, 0, 0, 0.46)), url('/background.jpg');
+    background-image: linear-gradient(rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.74)), url('/background.jpg');
   }
 
   .sidebar {
